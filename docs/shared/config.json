@@ -1,7 +1,7 @@
 {
   "_comment": "Single source of truth for thresholds and time windows. Read by the Python pipeline (pipeline/wifimap/config.py), the collector and the app. Edit here only.",
   "project": "SignalSpot",
-  "repo_url": "",
+  "repo_url": "https://github.com/michaelgoodatcode/signalspot",
   "_repo_url_note": "Set to your GitHub repo URL so the app can link to the methodology and dataset.",
   "timezone": "America/Chicago",
   "windows": [
