@@ -33,6 +33,8 @@ The same Python package (`pipeline/wifimap`) runs in the Databricks notebook and
 1. **Put the repo on GitHub** and turn on Pages: *Settings → Pages → Deploy from a branch → `main` / `/docs`*.
 2. **Edit `docs/data/spots.csv`** so the labels match real landmarks (e.g. `Floor 2 – study area` →
    `Floor 2 – booths by the east windows`). Add or remove spots freely; keep `spot_id` unique.
+   Optionally add a `description` column with exactly where to stand ("booths by the east windows");
+   otherwise the collector writes a generic instruction from the zone and floor.
    The building coordinates are approximate (`coord_source=approx`); outdoor spots get their position
    from the phones' GPS automatically. If you know an exact coordinate, type it in and set `coord_source=manual`.
 3. **Set `repo_url`** in `docs/shared/config.json` to your GitHub URL (the app links to this README).
@@ -48,16 +50,19 @@ The same Python package (`pipeline/wifimap`) runs in the Databricks notebook and
 
 1. Split up by building. Each phone gets a collector ID (C1, C2…) in *Phone setup*. Different carriers
    on the team = more networks covered.
-2. At each spot: run **Wi-Fi**, then turn Wi-Fi off and run **Cellular** (the collector switches for you
+2. Check the **where to stand** card: building code, floor, instructions and a mini map with your position.
+   If it says GPS puts you at a different building, tap **Switch to …**. (The pipeline also drops readings
+   whose GPS is more than 400 m from the labeled building.)
+3. At each spot: run **Wi-Fi**, then turn Wi-Fi off and run **Cellular** (the collector switches for you
    and then moves you to the next spot that still needs data). Tick *Run twice* at about 1 in 10 spots.
-3. A test that can't move any data is saved as `failed`: **that's a dead-zone measurement, keep it.**
+4. A test that can't move any data is saved as `failed`: **that's a dead-zone measurement, keep it.**
    If something went wrong (wrong network, you walked away), tap *Flag bad*.
-4. After each building: **Download CSV** (or *Share CSV* → AirDrop to a laptop) and upload it in
+5. After each building: **Download CSV** (or *Share CSV* → AirDrop to a laptop) and upload it in
    *Catalog → workspace → signalspot → Volumes → raw → Upload to this volume*. Re-uploading overlapping
    exports is fine.
-5. Run `databricks/01_pipeline` (set `event_start` to the hackathon start time), then `02_coverage` to see
+6. Run `databricks/01_pipeline` (set `event_start` to the hackathon start time), then `02_coverage` to see
    which spots still need readings. Aim for every spot to have ≥2 Wi-Fi and ≥2 cell tests in ≥2 time windows.
-6. In the Git folder: **Commit & push**. Pages redeploys the app with the new data in about a minute.
+7. In the Git folder: **Commit & push**. Pages redeploys the app with the new data in about a minute.
 
 ## Run it without Databricks
 

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#500000">
   <title>SignalSpot Collector</title>
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="collector.css">
 </head>
 <body>
@@ -48,6 +49,16 @@
         <label>Spot
           <select id="sel-spot"></select>
         </label>
+      </div>
+
+      <div id="spot-card" class="spot-card" aria-live="polite">
+        <div class="where-bldg"><span id="where-code" class="bldg-code"></span> <span id="where-bldg-name"></span></div>
+        <div id="where-label" class="where-label"></div>
+        <p id="where-desc" class="where-desc"></p>
+        <div id="mini-map" class="mini-map" aria-label="Map of this building and your position"></div>
+        <p id="gps-status" class="gps-status"></p>
+        <button id="switch-bldg" class="btn secondary" type="button" hidden></button>
+        <p class="muted small">Spot ID <code id="where-id"></code></p>
       </div>
 
       <fieldset class="seg" id="net-seg">
@@ -102,7 +113,7 @@
     </section>
 
     <section class="card">
-      <h2><span class="step">3</span> Coverage in this building <span class="muted small">(this phone)</span></h2>
+      <h2><span class="step">3</span> Coverage in <span id="cov-bldg">this building</span> <span class="muted small">(this phone)</span></h2>
       <div id="coverage"></div>
     </section>
 
@@ -130,6 +141,7 @@
     Speed tests use Cloudflare's open-source engine against Cloudflare's servers. Results stay on this phone until you export them.
   </footer>
 
+  <script src="../vendor/leaflet/leaflet.js"></script>
   <script type="module" src="collector.js"></script>
 </body>
 </html>

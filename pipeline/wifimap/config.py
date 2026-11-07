@@ -38,6 +38,7 @@ SPOT_COLUMNS = [
     "spot_id", "building_id", "building_name", "floor", "zone", "label",
     "indoor", "lat", "lng", "coord_source",
 ]
+OPTIONAL_SPOT_COLUMNS = ["description"]  # where exactly to stand; collector writes its own text if empty
 
 VALID_NETWORK_TYPES = {"wifi", "cell"}
 VALID_STATUSES = {"ok", "partial", "failed"}
@@ -76,7 +77,7 @@ STATS_TYPES = {
 SPOTS_TYPES = {
     "spot_id": "string", "building_id": "string", "building_name": "string",
     "floor": "string", "zone": "string", "label": "string", "indoor": "long",
-    "lat": "double", "lng": "double", "coord_source": "string",
+    "lat": "double", "lng": "double", "coord_source": "string", "description": "string",
 }
 
 

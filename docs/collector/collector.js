@@ -1,6 +1,9 @@
 // SignalSpot collector: runs speed tests on a phone and stores readings locally until exported.
 import { runSpeedTest } from './engine.js';
-import { parseCSV, toCSV, tierForReading, TIER_LABEL, TIER_GLYPH, windowForDate, fmtMbps } from '../js/logic.js';
+import {
+  parseCSV, toCSV, tierForReading, TIER_LABEL, TIER_GLYPH, windowForDate, fmtMbps,
+  buildingCentroids, locationCheck, spotWhereText, DEFAULT_BUILDING_MISMATCH_M,
+} from '../js/logic.js';
 
 // Keep in sync with pipeline/wifimap/config.py RAW_COLUMNS.
 export const RAW_COLUMNS = [
@@ -43,6 +46,11 @@ const state = {
   draft: store.get(KEYS.draft, { building: '', spot: '', net: 'wifi', ssid: 'TAMU_WiFi', ssid_other: '', gen: '5G', crowd: 'low' }),
   running: null,
   clearArmed: false,
+  centroids: {},
+  pos: null,          // latest GPS fix {lat, lng, acc, at}
+  geoState: 'off',    // off | waiting | denied | on
+  geoWatch: null,
+  runArmed: false,    // second tap needed to run despite a location mismatch
 };
 
 function saveReadings() { store.set(KEYS.readings, state.readings); }
@@ -75,6 +83,7 @@ async function loadData() {
     showBanner(`Offline: using the spot list saved on ${new Date(cached.at).toLocaleString()}.`);
   }
   if (!state.spots.length) throw new Error('spots.csv has no rows.');
+  state.centroids = buildingCentroids(state.spots);
 }
 
 function showBanner(msg) { const b = $('banner'); b.textContent = msg; b.hidden = !msg; }
@@ -116,11 +125,18 @@ function renderTest() {
   $('sel-building').innerHTML = bs.map((b) => `<option value="${esc(b.id)}" ${b.id === d.building ? 'selected' : ''}>${esc(b.name)}</option>`).join('');
   const sp = spotsIn(d.building);
   if (!sp.some((s) => s.spot_id === d.spot)) d.spot = sp[0].spot_id;
-  $('sel-spot').innerHTML = sp.map((s) => {
+  const groups = new Map();
+  for (const s of sp) {
+    const g = String(s.indoor) === '0' ? 'Outside the building' : (s.floor ? `Floor ${s.floor}` : 'Inside');
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(s);
+  }
+  $('sel-spot').innerHTML = [...groups.entries()].map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((s) => {
     const c = countsFor(s.spot_id);
     const done = c.wifi >= TARGET_PER_NET && c.cell >= TARGET_PER_NET ? '✓ ' : '';
     return `<option value="${esc(s.spot_id)}" ${s.spot_id === d.spot ? 'selected' : ''}>${done}${esc(s.label)} · W${c.wifi} C${c.cell}</option>`;
-  }).join('');
+  }).join('')}</optgroup>`).join('');
+  renderWhere();
 
   for (const b of $('net-seg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.net === d.net));
   $('wifi-opts').hidden = d.net !== 'wifi';
@@ -144,10 +160,99 @@ function renderTest() {
   $('run').disabled = Boolean(blocker) || Boolean(state.running);
   $('run-blocker').hidden = !blocker;
   $('run-blocker').textContent = blocker;
+  $('run').textContent = state.runArmed ? 'Location doesn\'t match — tap again to run anyway' : 'Run speed test';
+  $('run').classList.toggle('warnrun', state.runArmed);
+}
+
+// ---------- where to stand + GPS check ----------
+let miniMap = null;
+const miniLayers = {};
+
+function currentSpot() { return state.spots.find((s) => s.spot_id === state.draft.spot); }
+
+function currentCheck() {
+  if (!state.settings.record_gps) return { state: 'off', message: 'Location check is off (turn on “Record GPS” in Phone setup).' };
+  if (state.geoState === 'denied') return { state: 'off', message: 'Location permission is blocked, so there is no location check. Double-check the building yourself.' };
+  return locationCheck(state.pos, state.draft.building, state.centroids, { thresholdM: (state.config.gps && state.config.gps.building_mismatch_m) || DEFAULT_BUILDING_MISMATCH_M });
+}
+
+function renderWhere() {
+  const s = currentSpot();
+  if (!s) return;
+  $('where-code').textContent = s.building_id;
+  $('where-bldg-name').textContent = s.building_name;
+  $('where-label').textContent = s.label;
+  $('where-desc').textContent = spotWhereText(s);
+  $('where-id').textContent = s.spot_id;
+  const chk = currentCheck();
+  const st = $('gps-status');
+  st.className = `gps-status ${chk.state}`;
+  st.textContent = (chk.state === 'ok' ? '✓ ' : chk.state === 'mismatch' ? '⚠ ' : '') + chk.message;
+  const sw = $('switch-bldg');
+  const canSwitch = chk.state === 'mismatch' && chk.nearest && chk.nearest.building_id !== state.draft.building
+    && chk.nearest.distanceM <= ((state.config.gps && state.config.gps.building_mismatch_m) || DEFAULT_BUILDING_MISMATCH_M);
+  sw.hidden = !canSwitch;
+  if (canSwitch) { sw.textContent = `Switch to ${chk.nearest.building_name}`; sw.dataset.building = chk.nearest.building_id; }
+  if (chk.state !== 'mismatch') state.runArmed = false;
+  renderMiniMap(s);
+}
+
+function renderMiniMap(spot) {
+  const L = window.L;
+  if (!L) return;
+  if (!miniMap) {
+    miniMap = L.map('mini-map', { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(miniMap);
+  }
+  for (const k of Object.keys(miniLayers)) { miniLayers[k].remove(); delete miniLayers[k]; }
+  const c = state.centroids[spot.building_id];
+  const lat = parseFloat(spot.lat);
+  const lng = parseFloat(spot.lng);
+  const ownCoords = String(spot.indoor) === '0' && Number.isFinite(lat) && Number.isFinite(lng) && spot.coord_source === 'manual';
+  const target = ownCoords ? [lat, lng] : c ? [c.lat, c.lng] : null;
+  const pts = [];
+  if (target) {
+    miniLayers.bldg = L.marker(target, { icon: L.divIcon({ className: 'bldg-pin', html: `<span>${esc(spot.building_id)}${spot.floor ? ` · floor ${esc(spot.floor)}` : ''}</span>`, iconSize: [0, 0] }), interactive: false }).addTo(miniMap);
+    pts.push(target);
+  }
+  if (state.pos) {
+    miniLayers.acc = L.circle([state.pos.lat, state.pos.lng], { radius: Math.min(state.pos.acc, 300), weight: 1, color: '#1a73e8', fillOpacity: 0.12, interactive: false }).addTo(miniMap);
+    miniLayers.you = L.marker([state.pos.lat, state.pos.lng], { icon: L.divIcon({ className: '', html: '<div class="you-dot"></div>', iconSize: [14, 14] }), interactive: false }).addTo(miniMap);
+    if (!target || miniMap.distance(target, [state.pos.lat, state.pos.lng]) < 2500) pts.push([state.pos.lat, state.pos.lng]);
+  }
+  if (pts.length === 2) miniMap.fitBounds(pts, { padding: [28, 28], maxZoom: 18, animate: false });
+  else if (pts.length === 1) miniMap.setView(pts[0], 17, { animate: false });
+  else miniMap.setView([30.617, -96.34], 15, { animate: false });
+  miniMap.invalidateSize();
+}
+
+function startGeo() {
+  if (!state.settings.record_gps || !navigator.geolocation || state.geoWatch != null) return;
+  state.geoState = 'waiting';
+  state.geoWatch = navigator.geolocation.watchPosition(
+    (p) => {
+      state.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, at: Date.now() };
+      state.geoState = 'on';
+      renderTest(); // also refreshes the where-to-stand card
+    },
+    (err) => {
+      if (err && err.code === 1) state.geoState = 'denied';
+      renderWhere();
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+  );
+}
+
+function stopGeo() {
+  if (state.geoWatch != null && navigator.geolocation) navigator.geolocation.clearWatch(state.geoWatch);
+  state.geoWatch = null;
+  state.pos = null;
+  state.geoState = 'off';
 }
 
 function renderCoverage() {
   const sp = spotsIn(state.draft.building);
+  $('cov-bldg').textContent = sp.length ? sp[0].building_name : 'this building';
   const rows = sp.map((s) => {
     const c = countsFor(s.spot_id);
     const cls = (n) => `n${n < TARGET_PER_NET ? ' lack' : ''}`;
@@ -167,7 +272,7 @@ function renderRecent() {
     const flagged = r.exclude === '1';
     const t = new Date(r.ts_utc).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     return `<li class="${flagged ? 'flagged' : ''}">
-      <div><b>${esc(spot ? spot.label : r.spot_id)}</b> · ${esc(r.network_type === 'wifi' ? r.network_name : `${r.network_name} ${r.cell_gen}`)}
+      <div><span class="bcode">${esc(spot ? spot.building_id : '?')}</span> <b>${esc(spot ? spot.label : r.spot_id)}</b> · ${esc(r.network_type === 'wifi' ? r.network_name : `${r.network_name} ${r.cell_gen}`)}
         <div class="meta">${t} · ${esc(r.status)} · ↓${fmtMbps(num(r.download_mbps))} ↑${fmtMbps(num(r.upload_mbps))} Mbps · ${r.latency_ms === '' ? '—' : esc(r.latency_ms)} ms${r.retest_group ? ' · retest' : ''}</div></div>
       <button type="button" data-flag="${esc(r.reading_id)}">${flagged ? 'Unflag' : 'Flag bad'}</button></li>`;
   }).join('') || '<li class="muted">No readings yet.</li>';
@@ -244,6 +349,13 @@ async function runOnce(ctx, retestGroup, label) {
 async function startTest() {
   if (state.running || !settingsComplete()) return;
   const d = state.draft;
+  if (currentCheck().state === 'mismatch' && !state.runArmed) {
+    state.runArmed = true;
+    renderTest();
+    setTimeout(() => { if (state.runArmed && !state.running) { state.runArmed = false; renderTest(); } }, 6000);
+    return;
+  }
+  state.runArmed = false;
   const ctx = {
     spot_id: d.spot, net: d.net, gen: d.gen, crowd: d.crowd, notes: $('notes').value.trim(),
     network_name: d.net === 'wifi' ? ssidValue() : state.settings.carrier,
@@ -289,6 +401,7 @@ function showResult(r, n) {
   el.hidden = false;
   el.innerHTML = `<div><span class="pill ${tier}">${TIER_GLYPH[tier]} ${TIER_LABEL[tier]}</span>
       <span class="muted small"> single test${n > 1 ? ` (last of ${n})` : ''} · saved</span></div>
+    <p class="small">Saved for <b>${esc(savedWhere(r))}</b></p>
     <div class="nums">
       <div><b>${fmtMbps(num(r.download_mbps))}</b><small>down Mbps</small></div>
       <div><b>${fmtMbps(num(r.upload_mbps))}</b><small>up Mbps</small></div>
@@ -297,6 +410,11 @@ function showResult(r, n) {
     </div>
     ${r.status !== 'ok' ? `<p class="small">Status <b>${esc(r.status)}</b>: ${r.status === 'failed' ? 'no data could be moved here — that is a dead-zone reading, keep it.' : 'the test was cut short; what was measured is kept.'}</p>` : ''}
     <p class="small muted" id="next-line"></p>`;
+}
+
+function savedWhere(r) {
+  const s = state.spots.find((x) => x.spot_id === r.spot_id);
+  return s ? `${s.building_id} · ${s.label}` : r.spot_id;
 }
 
 function suggestNext(ctx) {
@@ -366,9 +484,20 @@ function wire() {
       carrier: $('set-carrier').value, record_gps: $('set-gps').checked,
     };
     store.set(KEYS.settings, state.settings);
+    if (state.settings.record_gps) startGeo(); else stopGeo();
     renderAll();
   });
-  $('sel-building').addEventListener('change', (e) => { state.draft.building = e.target.value; state.draft.spot = ''; saveDraft(); renderAll(); });
+  $('switch-bldg').addEventListener('click', (e) => {
+    const b = e.currentTarget.dataset.building;
+    if (!b) return;
+    state.draft.building = b;
+    state.draft.spot = '';
+    state.runArmed = false;
+    saveDraft();
+    renderAll();
+    $('spot-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  $('sel-building').addEventListener('change', (e) => { state.draft.building = e.target.value; state.draft.spot = ''; state.runArmed = false; saveDraft(); renderAll(); });
   $('sel-spot').addEventListener('change', (e) => { state.draft.spot = e.target.value; saveDraft(); renderTest(); renderCoverage(); });
   $('net-seg').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-net]');
@@ -427,5 +556,6 @@ function wire() {
   }
   wire();
   renderAll();
+  startGeo();
   window.__signalspot = { state, RAW_COLUMNS }; // for debugging and automated tests
 })();

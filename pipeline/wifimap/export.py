@@ -102,6 +102,7 @@ def build_app_json(spots: pd.DataFrame, stats: pd.DataFrame, clean_df: pd.DataFr
             "spot_id": sp["spot_id"], "building_id": sp["building_id"], "building_name": sp["building_name"],
             "floor": sp["floor"], "zone": sp["zone"], "label": sp["label"], "indoor": int(sp["indoor"]),
             "lat": _py(sp["lat"], 6), "lng": _py(sp["lng"], 6), "coord_source": sp["coord_source"],
+            "description": sp.get("description", "") or "",
             "stats": by_spot.get(sp["spot_id"], {}),
         })
 

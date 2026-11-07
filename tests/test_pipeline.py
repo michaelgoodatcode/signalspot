@@ -160,6 +160,32 @@ def test_all_zero_result_from_engine_is_a_failure():
     assert st.iloc[0]["tier"] == "dead" and math.isnan(st.iloc[0]["lat_med"])
 
 
+def test_gps_far_from_labeled_building_is_dropped():
+    # The first real export: labeled Zachry, but the phone was at the MSC (~960 m away).
+    rows = [
+        raw_row(reading_id="at-msc", spot_id="ZACH-1-STUDY", gps_lat="30.6126", gps_lng="-96.3414", gps_acc_m="12"),
+        raw_row(reading_id="at-zach", spot_id="ZACH-1-LOBBY", gps_lat="30.6214", gps_lng="-96.3401", gps_acc_m="20"),
+        raw_row(reading_id="rough-gps", spot_id="ZACH-2-STUDY", gps_lat="30.6126", gps_lng="-96.3414", gps_acc_m="500"),
+        raw_row(reading_id="no-gps", spot_id="ZACH-2-LOBBY"),
+        raw_row(reading_id="outdoor-ok", spot_id="MSC-OUT-N", gps_lat="30.6128", gps_lng="-96.3416", gps_acc_m="8"),
+    ]
+    c, qa = clean(raw_df(rows), SPOTS, CFG)
+    assert sorted(c["reading_id"]) == ["at-zach", "no-gps", "outdoor-ok", "rough-gps"]
+    r = qa[qa["reading_id"] == "at-msc"].iloc[0]
+    assert r["reason"] == "gps_building_mismatch" and r["detail"].endswith("m from ZACH")
+    assert 900 < float(r["detail"].split()[0]) < 1000
+    assert "_gps_detail" not in c.columns
+
+
+def test_spots_description_column_is_optional(tmp_path):
+    assert (SPOTS["description"] == "").all()          # template has no description column
+    p = tmp_path / "s.csv"
+    p.write_text("spot_id,building_id,building_name,floor,zone,label,description,indoor,lat,lng,coord_source\n"
+                 "A-1,A,Bldg A,1,study area,Floor 1 – booths,\"By the east windows, past the cafe\",1,30.6,-96.3,approx\n")
+    s = read_spots(p)
+    assert s.loc[0, "description"] == "By the east windows, past the cafe"
+
+
 def test_carrier_normalization_and_network_key():
     assert normalize_carrier("at&t") == "AT&T" and normalize_carrier(" TMobile ") == "T-Mobile"
     rows = [raw_row(reading_id="a", network_type="CELL", network_name="verizon")]
@@ -217,16 +243,16 @@ def test_aggregate_empty():
 
 def test_coordinates_gps_median_manual_and_fallback():
     spots = SPOTS.copy()
-    spots.loc[spots["spot_id"] == "ZACH-1-LOBBY", ["lat", "lng", "coord_source"]] = [30.1, -96.1, "manual"]
+    spots.loc[spots["spot_id"] == "ZACH-1-LOBBY", ["lat", "lng", "coord_source"]] = [30.6215, -96.3399, "manual"]
     rows = [raw_row(reading_id=f"g{i}", spot_id="ZACH-OUT-N", gps_lat=f"{30.6220 + i * 0.0001:.4f}",
                     gps_lng="-96.3400", gps_acc_m="8") for i in range(3)]
     rows.append(raw_row(reading_id="inaccurate", spot_id="ZACH-OUT-N", gps_lat="31", gps_lng="-97", gps_acc_m="500"))
-    rows.append(raw_row(reading_id="manualspot", spot_id="ZACH-1-LOBBY", gps_lat="31", gps_lng="-97", gps_acc_m="5"))
+    rows.append(raw_row(reading_id="manualspot", spot_id="ZACH-1-LOBBY", gps_lat="30.6230", gps_lng="-96.3410", gps_acc_m="5"))
     c, _ = clean(raw_df(rows), spots, CFG)
     r = resolve_spot_coords(spots, c, CFG).set_index("spot_id")
     assert r.loc["ZACH-OUT-N", "coord_source"] == "gps_median"
     assert r.loc["ZACH-OUT-N", "lat"] == pytest.approx(30.6221)
-    assert r.loc["ZACH-1-LOBBY", "lat"] == 30.1                     # manual wins over GPS
+    assert r.loc["ZACH-1-LOBBY", "lat"] == 30.6215                  # manual wins over GPS
     assert r.loc["ZACH-OUT-S", "coord_source"] == "building_fallback"
     assert not r["lat"].isna().any()
 

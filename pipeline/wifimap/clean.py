@@ -10,6 +10,27 @@ import pandas as pd
 
 from .config import NUMERIC_RAW_COLUMNS, VALID_NETWORK_TYPES, VALID_STATUSES, window_for_hour
 
+DEFAULT_BUILDING_MISMATCH_M = 400
+
+
+def haversine_m(lat1, lng1, lat2, lng2):
+    """Vectorised great-circle distance in metres (NaN where any input is missing)."""
+    lat1, lng1, lat2, lng2 = (np.radians(pd.to_numeric(pd.Series(x), errors="coerce").astype(float).to_numpy())
+                              for x in (lat1, lng1, lat2, lng2))
+    a = np.sin((lat2 - lat1) / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin((lng2 - lng1) / 2) ** 2
+    return 2 * 6371000 * np.arcsin(np.sqrt(a))
+
+
+def building_centroids_from_spots(spots: pd.DataFrame) -> dict:
+    """{building_id: (lat, lng)} from spots.csv: mean of indoor spots with coordinates, else any spot."""
+    out = {}
+    placed = spots[spots["lat"].notna() & spots["lng"].notna()]
+    for b, g in placed.groupby("building_id"):
+        use = g[g["indoor"] == 1] if (g["indoor"] == 1).any() else g
+        out[b] = (float(use["lat"].mean()), float(use["lng"].mean()))
+    return out
+
+
 CARRIER_ALIASES = {
     "at&t": "AT&T", "att": "AT&T", "at and t": "AT&T", "at t": "AT&T",
     "verizon": "Verizon", "vzw": "Verizon",
@@ -80,6 +101,20 @@ def clean(raw: pd.DataFrame, spots: pd.DataFrame, config: dict,
 
     known_spots = set(spots["spot_id"])
     drop(~df["spot_id"].isin(known_spots), "unknown_spot", "spot_id")
+
+    # A reading whose (accurate) GPS fix is far from the building it was labeled with was
+    # almost certainly saved under the wrong building (e.g. collector left on the default).
+    mismatch_m = config.get("gps", {}).get("building_mismatch_m", DEFAULT_BUILDING_MISMATCH_M)
+    cents = building_centroids_from_spots(spots)
+    glat = pd.to_numeric(df["gps_lat"], errors="coerce")
+    glng = pd.to_numeric(df["gps_lng"], errors="coerce")
+    gacc = pd.to_numeric(df["gps_acc_m"], errors="coerce")
+    bid = df["spot_id"].map(spots.set_index("spot_id")["building_id"])
+    clat = bid.map({k: v[0] for k, v in cents.items()})
+    clng = bid.map({k: v[1] for k, v in cents.items()})
+    dist = haversine_m(glat, glng, clat, clng)
+    df["_gps_detail"] = [f"{d:.0f} m from {b}" if d == d else "" for d, b in zip(dist, bid)]
+    drop((gacc <= 100) & (dist > mismatch_m), "gps_building_mismatch", "_gps_detail")
     drop(~df["network_type"].isin(VALID_NETWORK_TYPES), "bad_network_type", "network_type")
     drop(_blank(df["network_name"]), "missing_network_name")
     drop(~df["status"].isin(VALID_STATUSES), "bad_status", "status")

@@ -104,3 +104,4 @@ body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; backgro
 .popup th { color: #6f6d68; font-weight: 600; font-size: 12px; }
 .popup tr.current td { font-weight: 700; }
 .popup .note { color: #6f6d68; margin: 6px 0 0; font-size: 12px; }
+.popup .note.stand { color: #0b0b0b; margin: 0 0 8px; font-size: 12.5px; }

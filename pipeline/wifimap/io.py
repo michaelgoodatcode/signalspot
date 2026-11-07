@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config import RAW_COLUMNS, SPOT_COLUMNS
+from .config import OPTIONAL_SPOT_COLUMNS, RAW_COLUMNS, SPOT_COLUMNS
 
 
 def find_raw_files(raw_dir: str | Path) -> list[str]:
@@ -46,8 +46,12 @@ def read_spots(path: str | Path) -> pd.DataFrame:
     missing = [c for c in SPOT_COLUMNS if c not in spots.columns]
     if missing:
         raise ValueError(f"spots.csv is missing columns: {missing}")
-    spots = spots[SPOT_COLUMNS].copy()
-    for col in SPOT_COLUMNS:
+    for col in OPTIONAL_SPOT_COLUMNS:
+        if col not in spots.columns:
+            spots[col] = ""
+    cols = SPOT_COLUMNS + OPTIONAL_SPOT_COLUMNS
+    spots = spots[cols].copy()
+    for col in cols:
         spots[col] = spots[col].astype(str).str.strip()
     problems = []
     if (spots["spot_id"] == "").any():

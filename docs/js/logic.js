@@ -171,6 +171,75 @@ export function layoutSpots(spots, buildings) {
   return pos;
 }
 
+// ---------- where is a spot? (collector) ----------
+
+export const DEFAULT_BUILDING_MISMATCH_M = 400;
+const OUTDOOR_SIDES = { N: 'north', S: 'south', E: 'east', W: 'west' };
+
+/** Building centroids from spots.csv rows (indoor spots with coordinates; else any spot with coordinates). */
+export function buildingCentroids(spots) {
+  const by = {};
+  for (const s of spots) {
+    const lat = parseFloat(s.lat);
+    const lng = parseFloat(s.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const b = (by[s.building_id] = by[s.building_id] || { indoor: [], all: [], name: s.building_name });
+    (String(s.indoor) === '1' ? b.indoor : b.all).push([lat, lng]);
+  }
+  const out = {};
+  for (const [id, b] of Object.entries(by)) {
+    const pts = b.indoor.length ? b.indoor : b.all;
+    out[id] = { building_id: id, building_name: b.name, lat: pts.reduce((a, p) => a + p[0], 0) / pts.length, lng: pts.reduce((a, p) => a + p[1], 0) / pts.length };
+  }
+  return out;
+}
+
+/** Closest building to a position: { building_id, building_name, distanceM } or null. */
+export function nearestBuilding(pos, centroids) {
+  let best = null;
+  for (const c of Object.values(centroids)) {
+    const d = haversineM(pos, c);
+    if (!best || d < best.distanceM) best = { building_id: c.building_id, building_name: c.building_name, distanceM: d };
+  }
+  return best;
+}
+
+/**
+ * Location check for the collector. Returns { state, message, distanceM, nearest }.
+ * state: 'off' (GPS disabled), 'waiting', 'imprecise', 'ok', 'mismatch', 'nocoords'.
+ */
+export function locationCheck(pos, buildingId, centroids, { thresholdM = DEFAULT_BUILDING_MISMATCH_M, maxAccuracyM = 150 } = {}) {
+  const c = centroids[buildingId];
+  if (!c) return { state: 'nocoords', message: 'No coordinates for this building in spots.csv, so no location check.' };
+  if (!pos) return { state: 'waiting', message: 'Waiting for GPS…' };
+  if (pos.acc > maxAccuracyM) return { state: 'imprecise', message: `GPS is too rough right now (±${Math.round(pos.acc)} m) for a check.` };
+  const d = haversineM(pos, c);
+  const nearest = nearestBuilding(pos, centroids);
+  const r10 = (m) => (m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`);
+  if (d <= thresholdM) return { state: 'ok', distanceM: d, nearest, message: `GPS check: you're about ${r10(d)} from ${c.building_name}.` };
+  const near = nearest && nearest.building_id !== buildingId && nearest.distanceM <= thresholdM
+    ? ` You look closer to ${nearest.building_name} (${r10(nearest.distanceM)}).` : '';
+  return { state: 'mismatch', distanceM: d, nearest, message: `GPS says you're ${r10(d)} from ${c.building_name}.${near}` };
+}
+
+/** Plain-language "where to stand" text for a spot. Uses the optional `description` column if filled in. */
+export function spotWhereText(spot) {
+  if (spot.description && String(spot.description).trim()) return String(spot.description).trim();
+  const f = spot.floor ? `floor ${spot.floor}` : '';
+  const zone = String(spot.zone || '').toLowerCase();
+  if (String(spot.indoor) === '0' || zone === 'outdoor') {
+    const suffix = String(spot.spot_id || '').split('-').pop();
+    if (OUTDOOR_SIDES[suffix]) return `Outside, about 10 m from the ${OUTDOOR_SIDES[suffix]} side of ${spot.building_name}.`;
+    if (suffix === 'PLAZA') return `Outside ${spot.building_name}, at the nearest plaza or outdoor seating.`;
+    return `Outside ${spot.building_name}: ${spot.label}.`;
+  }
+  if (zone.includes('study')) return `On ${f}, sit at the main open study / seating area (not inside a closed room).`;
+  if (zone.includes('lobby') || (zone.includes('hall') && !zone.includes('hallway'))) return `On ${f}, stand in the main hall or lobby by the elevators / main stairs.`;
+  if (zone.includes('hallway') || zone.includes('corner')) return `On ${f}, go to the far end of a hallway or a corner, as far from the lobby as you can.`;
+  if (zone.includes('stair')) return `Inside a stairwell at the ${f} landing, with the door closed behind you.`;
+  return `${spot.label}${f ? ` (${f})` : ''}.`;
+}
+
 // ---------- speed test result → reading (collector) ----------
 
 const posNum = (x, d = 1) => (typeof x === 'number' && Number.isFinite(x) && x > 0 ? Number(x.toFixed(d)) : null);

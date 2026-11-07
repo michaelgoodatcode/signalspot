@@ -2,7 +2,7 @@
 // "where can I take a Zoom call / upload a big file right now?".
 import {
   TIER_LABEL, TIER_GLYPH, windowForDate, localWeekday, pickStats, rankSpots, networkSummary,
-  layoutSpots, fmtMbps, formatDuration,
+  layoutSpots, fmtMbps, formatDuration, spotWhereText,
 } from './logic.js';
 
 const L = window.L;
@@ -292,6 +292,7 @@ function popupHTML(spot) {
   const schematic = positions[spot.spot_id] && positions[spot.spot_id].schematic;
   return `<div class="popup"><h3>${esc(spot.label)}</h3>
     <p class="where">${esc(spot.building_name)}${spot.floor ? ` · floor ${esc(spot.floor)}` : ''} · ${esc(winLabel)}</p>
+    <p class="note stand">${esc(spotWhereText(spot))}</p>
     ${rows ? `<table><thead><tr><th>Network</th><th>Zoom</th><th>Mbps</th><th>Latency</th><th class="ncol">Tests</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="note">No readings here yet.</p>'}
     ${untested.length && rows ? `<p class="note">Not tested here: ${untested.map((n) => esc(n.name)).join(', ')}.</p>` : ''}
     ${anyFallback ? '<p class="note">* no readings in this time window; showing all readings.</p>' : ''}

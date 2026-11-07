@@ -49,7 +49,9 @@ Result logging to Cloudflare's aggregate endpoint is turned off (`logAimApiUrl: 
 the time, spot, network, cellular generation shown in the status bar, crowd level (low/medium/high, by eye),
 optional GPS, and on Android the browser-reported connection type.
 
-**Protocol:** stand still at the spot, phone at chest height. Wi-Fi test first; then turn Wi-Fi off in settings
+**Protocol:** the collector shows a "where to stand" card for every spot (building, floor, instructions, a
+small map with the phone's position) and warns before a test if GPS places the phone more than 400 m from the
+selected building. Stand still at the spot, phone at chest height. Wi-Fi test first; then turn Wi-Fi off in settings
 and run the cellular test. Tests that move no data are saved as `failed`. These are dead-zone measurements,
 not errors. Tests with an operator problem are flagged on the phone, kept in the export, and removed by the
 pipeline with reason `flagged_by_collector`.
@@ -59,7 +61,8 @@ pipeline with reason `flagged_by_collector`.
 1. **Ingest:** all CSV exports are read as text. Overlapping exports are de-duplicated by `reading_id`
    (a flag on any copy wins).
 2. **Validate:** a row is removed, with the reason written to `qa_log`, if it was flagged, has a bad timestamp,
-   falls outside the event window, has an unknown spot, an invalid network or status, implausible values
+   falls outside the event window, has an unknown spot, was labeled with the wrong building (the phone's GPS,
+   accurate to ±100 m or better, was more than 400 m from the labeled building), an invalid network or status, implausible values
    (>3000 Mbps, negative numbers, >10 s latency), or a network mismatch (Android reported Wi-Fi when the
    collector chose cellular, or the reverse).
 3. **Normalize:** carrier names are unified; times are converted to campus time and assigned a window.

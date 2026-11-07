@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   windowForDate, localHour, tierForReading, pickStats, rankSpots, networkSummary, uploadSeconds,
   formatDuration, haversineM, toCSV, parseCSV, summaryToReading, layoutSpots, fmtMbps,
+  buildingCentroids, nearestBuilding, locationCheck, spotWhereText,
 } from '../../docs/js/logic.js';
 
 const cfg = JSON.parse(readFileSync(new URL('../../docs/shared/config.json', import.meta.url)));
@@ -133,4 +134,36 @@ test('layoutSpots rings indoor spots around their building and keeps GPS-placed 
   assert.equal(pos.c.lat, 30.6181);
   const d = haversineM({ lat: 30.617, lng: -96.34 }, pos.a);
   assert.ok(d > 10 && d < 30, `ring radius ${d}`);
+});
+
+test('location check catches a reading saved under the wrong building', () => {
+  const spots = parseCSV(readFileSync(new URL('../../docs/data/spots.csv', import.meta.url), 'utf8'));
+  const cents = buildingCentroids(spots);
+  assert.deepEqual(Object.keys(cents).sort(), ['EVAN', 'MSC', 'ZACH']);
+  // The phone's real GPS fix from the first export (at the MSC, but Zachry was selected).
+  const atMsc = { lat: 30.6126, lng: -96.3414, acc: 12 };
+  const chk = locationCheck(atMsc, 'ZACH', cents);
+  assert.equal(chk.state, 'mismatch');
+  assert.equal(chk.nearest.building_id, 'MSC');
+  assert.match(chk.message, /Memorial Student Center/);
+  assert.equal(locationCheck(atMsc, 'MSC', cents).state, 'ok');
+  assert.equal(locationCheck({ ...atMsc, acc: 500 }, 'ZACH', cents).state, 'imprecise');
+  assert.equal(locationCheck(null, 'ZACH', cents).state, 'waiting');
+  assert.equal(locationCheck(atMsc, 'NOPE', cents).state, 'nocoords');
+  assert.equal(nearestBuilding(atMsc, cents).building_id, 'MSC');
+});
+
+test('every template spot gets a plain-language "where to stand" text', () => {
+  const spots = parseCSV(readFileSync(new URL('../../docs/data/spots.csv', import.meta.url), 'utf8'));
+  for (const s of spots) {
+    const t = spotWhereText(s);
+    assert.ok(t.length > 20, `${s.spot_id}: ${t}`);
+  }
+  const byId = Object.fromEntries(spots.map((s) => [s.spot_id, spotWhereText(s)]));
+  assert.match(byId['ZACH-2-STAIR'], /stairwell at the floor 2 landing/);
+  assert.match(byId['EVAN-3-HALL'], /far end of a hallway/);
+  assert.match(byId['MSC-1-LOBBY'], /lobby/);
+  assert.match(byId['ZACH-OUT-N'], /north side of Zachry/);
+  assert.match(byId['MSC-OUT-PLAZA'], /plaza/);
+  assert.equal(spotWhereText({ ...spots[0], description: 'Booths by the east windows' }), 'Booths by the east windows');
 });

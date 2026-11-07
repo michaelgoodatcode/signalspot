@@ -83,8 +83,9 @@ def browser():
         b.close()
 
 
-def new_page(browser, server, fake=True):
-    ctx = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, accept_downloads=True)
+def new_page(browser, server, fake=True, geo=None):
+    extra = {"geolocation": geo, "permissions": ["geolocation"]} if geo else {}
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, accept_downloads=True, **extra)
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -271,4 +272,82 @@ def test_collector_offline_uses_cached_spots(browser, server):
     page.wait_for_function("window.__signalspot !== undefined")
     assert "Offline: using the spot list" in page.inner_text("#banner")
     assert page.locator("#sel-spot option").count() > 0
+    ctx.close()
+
+
+AT_MSC = {"latitude": 30.6126, "longitude": -96.3414, "accuracy": 12}   # GPS fix from the first real export
+
+
+def test_where_card_and_wrong_building_warning(browser, server):
+    ctx, page, errors = new_page(browser, server, geo=AT_MSC)
+    page.route("**/tile.openstreetmap.org/**", lambda r: r.abort())
+    setup_phone(page)
+    # Default building is Zachry, but the phone is at the MSC.
+    page.select_option("#sel-building", "ZACH")
+    page.select_option("#sel-spot", "ZACH-2-STAIR")
+    page.wait_for_function("document.getElementById('gps-status').classList.contains('mismatch')")
+    card = page.inner_text("#spot-card")
+    assert "ZACH" in card and "Zachry Engineering Education Complex" in card
+    assert "Floor 2 – stairwell" in card and "stairwell at the floor 2 landing" in card
+    assert "ZACH-2-STAIR" in card
+    status = page.inner_text("#gps-status")
+    assert "960 m from Zachry" in status and "Memorial Student Center" in status
+    assert page.is_visible("#switch-bldg") and "Memorial Student Center" in page.inner_text("#switch-bldg")
+    assert page.locator(".bldg-pin").count() == 1 and page.locator(".you-dot").count() == 1
+    page.locator("#spot-card").screenshot(path=str(REPO / "tests" / "screenshots" / "collector_wrong_building.png"))
+
+    # First tap only arms the run; nothing is saved.
+    page.click("#run")
+    assert "tap again to run anyway" in page.inner_text("#run")
+    assert readings(page) == []
+    # Second tap runs anyway (e.g. building coordinates in spots.csv are off).
+    page.click("#run")
+    page.wait_for_function("window.__signalspot.state.readings.length === 1 && !window.__signalspot.state.running", timeout=15000)
+    r = readings(page)[0]
+    assert r["spot_id"] == "ZACH-2-STAIR" and r["gps_lat"] == "30.6126" and r["gps_acc_m"] == "12"
+    assert "Saved for ZACH · Floor 2 – stairwell" in page.inner_text("#result")
+    assert page.inner_text("#recent li:first-child").startswith("ZACH")
+
+    # One tap fixes it: switch to the nearest building.
+    page.click("#switch-bldg")
+    assert page.input_value("#sel-building") == "MSC"
+    page.wait_for_function("document.getElementById('gps-status').classList.contains('ok')")
+    assert "about 50 m from Memorial Student Center" in page.inner_text("#gps-status")
+    assert not page.is_visible("#switch-bldg")
+    assert page.inner_text("#run") == "Run speed test"
+    assert "Coverage in Memorial Student Center" in page.inner_text("main")
+    # Spots are grouped by floor and outside.
+    groups = page.eval_on_selector_all("#sel-spot optgroup", "els => els.map(e => e.label)")
+    assert groups == ["Floor 1", "Floor 2", "Outside the building"]
+    page.select_option("#sel-spot", "MSC-OUT-PLAZA")
+    assert "nearest plaza or outdoor seating" in page.inner_text("#where-desc")
+    page.locator("#spot-card").screenshot(path=str(REPO / "tests" / "screenshots" / "collector_right_building.png"))
+
+    # The pipeline drops the mislabeled reading.
+    import tempfile
+    from wifimap.config import RAW_COLUMNS
+    from wifimap.pipeline import run
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "x.csv"
+        with open(path, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=RAW_COLUMNS)
+            w.writeheader()
+            w.writerows(readings(page))
+        res = run([str(path)], REPO / "docs" / "data" / "spots.csv")
+        assert res.app_json["meta"]["dropped_by_reason"] == {"gps_building_mismatch": 1}
+    assert errors == [], errors
+    ctx.close()
+
+
+def test_location_permission_denied_does_not_block(browser, server):
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    page = ctx.new_page()
+    page.add_init_script(FAKE_ENGINE)
+    page.goto(f"{server}/collector/")
+    page.wait_for_function("window.__signalspot !== undefined")
+    setup_phone(page)
+    page.wait_for_function("document.getElementById('gps-status').textContent.length > 0")
+    assert "mismatch" not in page.get_attribute("#gps-status", "class")
+    run_and_wait(page, 0)                       # a single tap runs
+    assert len(readings(page)) == 1
     ctx.close()

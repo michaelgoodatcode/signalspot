@@ -43,6 +43,7 @@ One row per speed test, exactly as recorded on the phone. Empty cell = not recor
 | `floor` | Floor number (empty for outdoor) |
 | `zone` | Type of place: study area, lobby / main hall, far hallway / corner, stairwell, outdoor |
 | `label` | What collectors and app users see |
+| `description` | *Optional.* Exactly where to stand (e.g. "Booths by the east windows"). If the column is missing or empty, the collector and app write a generic instruction from `zone` and `floor` |
 | `indoor` | `1` indoor, `0` outdoor |
 | `lat`, `lng` | Coordinates (may be empty for outdoor spots; filled from GPS) |
 | `coord_source` | `manual` (typed in, wins), `approx` (building centroid), `gps` (to be filled from readings) |
@@ -65,7 +66,7 @@ All raw fields that survive cleaning, plus:
 
 Every removed row: `reading_id`, `source_file`, `reason`, `detail`. Reasons: `duplicate_reading_id`
 (extra copy, no data lost), `flagged_by_collector`, `synthetic_row`, `bad_timestamp`, `outside_event_window`,
-`unknown_spot`, `bad_network_type`, `missing_network_name`, `bad_status`, `network_mismatch`,
+`unknown_spot`, `gps_building_mismatch` (accurate GPS fix more than 400 m from the labeled building), `bad_network_type`, `missing_network_name`, `bad_status`, `network_mismatch`,
 `implausible_value`, `missing_reading_id`.
 
 ## `data/processed/spot_stats.csv` (Delta table `spot_stats`)
