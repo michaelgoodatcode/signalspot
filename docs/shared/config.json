@@ -1,0 +1,29 @@
+{
+  "_comment": "Single source of truth for thresholds and time windows. Read by the Python pipeline (pipeline/wifimap/config.py), the collector and the app. Edit here only.",
+  "project": "SignalSpot",
+  "repo_url": "",
+  "_repo_url_note": "Set to your GitHub repo URL so the app can link to the methodology and dataset.",
+  "timezone": "America/Chicago",
+  "windows": [
+    { "id": "morning",   "label": "Morning (6–11 AM)",     "start_hour": 6,  "end_hour": 11 },
+    { "id": "midday",    "label": "Midday (11 AM–2 PM)",   "start_hour": 11, "end_hour": 14 },
+    { "id": "afternoon", "label": "Afternoon (2–6 PM)",    "start_hour": 14, "end_hour": 18 },
+    { "id": "evening",   "label": "Evening (6–10 PM)",     "start_hour": 18, "end_hour": 22 },
+    { "id": "night",     "label": "Night (10 PM–6 AM)",    "start_hour": 22, "end_hour": 6 }
+  ],
+  "zoom_tiers": {
+    "_source": "Bandwidth: Zoom's published guidance (group call 720p = 2.6 Mbps up / 1.8 Mbps down; 1:1 720p = 1.2 / 1.2). Latency, jitter and failure-rate cutoffs are our own rule-of-thumb choices.",
+    "good": { "up_mbps": 2.6, "down_mbps": 1.8, "latency_ms": 100, "jitter_ms": 30, "max_fail_rate": 0.2 },
+    "ok":   { "up_mbps": 1.2, "down_mbps": 1.2, "latency_ms": 150, "jitter_ms": 50, "max_fail_rate": 0.4 }
+  },
+  "zoom_score_weights": { "up": 0.40, "down": 0.20, "latency": 0.25, "jitter": 0.15,
+                          "up_cap_mbps": 5, "down_cap_mbps": 5, "latency_floor_ms": 20, "latency_ceiling_ms": 200, "jitter_ceiling_ms": 60 },
+  "low_confidence_n": 2,
+  "walk_speed_m_per_min": 80,
+  "plausibility": { "max_mbps": 3000, "max_latency_ms": 10000 },
+  "wifi_networks": ["TAMU_WiFi", "eduroam", "TAMU_Visitor"],
+  "carriers": ["AT&T", "Verizon", "T-Mobile", "Other"],
+  "cell_generations": ["5G", "LTE", "3G/other"],
+  "crowd_levels": ["low", "medium", "high"],
+  "gps": { "outdoor_max_accuracy_m": 30, "indoor_max_accuracy_m": 40, "round_decimals": 4 }
+}

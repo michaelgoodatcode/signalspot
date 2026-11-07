@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=7
+playwright>=1.40
+pyspark==3.5.3

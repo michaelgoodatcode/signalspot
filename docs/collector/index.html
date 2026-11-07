@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#500000">
+  <title>SignalSpot Collector</title>
+  <link rel="stylesheet" href="collector.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>SignalSpot <span>Collector</span></h1>
+      <p id="store-line" class="muted">Loading…</p>
+    </div>
+    <a class="link" href="../">Open map ↗</a>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main>
+    <details id="settings-card" class="card">
+      <summary><span class="step">1</span> Phone setup <span id="settings-summary" class="muted"></span></summary>
+      <div class="grid2">
+        <label>Collector ID
+          <select id="set-collector"></select>
+        </label>
+        <label>Phone model
+          <input id="set-device" type="text" placeholder="e.g. iPhone 15, Pixel 8" maxlength="40" autocomplete="off">
+        </label>
+        <label>Your cell carrier
+          <select id="set-carrier"></select>
+        </label>
+        <label class="check">
+          <input id="set-gps" type="checkbox"> Record GPS (used to place outdoor spots)
+        </label>
+      </div>
+      <p class="muted small">Collector IDs keep the dataset anonymous. Don't type names into notes.</p>
+      <button id="set-save" class="btn secondary" type="button">Save setup</button>
+    </details>
+
+    <section class="card" id="test-card">
+      <h2><span class="step">2</span> Run a test</h2>
+      <div class="grid2">
+        <label>Building
+          <select id="sel-building"></select>
+        </label>
+        <label>Spot
+          <select id="sel-spot"></select>
+        </label>
+      </div>
+
+      <fieldset class="seg" id="net-seg">
+        <legend>Network</legend>
+        <button type="button" data-net="wifi">Wi-Fi</button>
+        <button type="button" data-net="cell">Cellular</button>
+      </fieldset>
+
+      <div id="wifi-opts" class="grid2">
+        <label>Wi-Fi network (SSID)
+          <select id="sel-ssid"></select>
+        </label>
+        <label id="ssid-other-wrap" hidden>Other SSID
+          <input id="ssid-other" type="text" maxlength="40" autocomplete="off">
+        </label>
+      </div>
+      <div id="cell-opts" class="grid2" hidden>
+        <label>Signal shown in status bar
+          <select id="sel-gen"></select>
+        </label>
+        <p class="muted small" id="carrier-line"></p>
+      </div>
+
+      <p id="net-hint" class="hint"></p>
+
+      <fieldset class="seg" id="crowd-seg">
+        <legend>How crowded is it?</legend>
+      </fieldset>
+
+      <label>Notes (optional, no personal info)
+        <input id="notes" type="text" maxlength="120" placeholder="e.g. near window, phone on table" autocomplete="off">
+      </label>
+      <label class="check">
+        <input id="retest" type="checkbox"> Run twice back-to-back (repeatability check — do this at ~1 in 10 spots)
+      </label>
+
+      <button id="run" class="btn primary big" type="button">Run speed test</button>
+      <p id="run-blocker" class="muted small" hidden></p>
+
+      <div id="progress" class="progress" hidden>
+        <div class="bar"><div id="progress-fill"></div></div>
+        <p id="progress-text">Starting…</p>
+        <div class="live">
+          <div><span id="live-down">—</span><small>down Mbps</small></div>
+          <div><span id="live-up">—</span><small>up Mbps</small></div>
+          <div><span id="live-lat">—</span><small>latency ms</small></div>
+        </div>
+        <button id="cancel" class="btn ghost" type="button">Cancel (don't save)</button>
+      </div>
+
+      <div id="result" class="result" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">3</span> Coverage in this building <span class="muted small">(this phone)</span></h2>
+      <div id="coverage"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">4</span> Export &amp; upload</h2>
+      <p class="muted small">Export after every building. Upload the CSV to the Databricks <code>raw</code> volume
+        (or commit it to <code>data/raw/</code>). Exporting twice is fine; duplicates are removed.</p>
+      <div class="row">
+        <button id="export" class="btn primary" type="button">Download CSV</button>
+        <button id="share" class="btn secondary" type="button" hidden>Share CSV…</button>
+      </div>
+      <p id="export-line" class="muted small"></p>
+    </section>
+
+    <section class="card">
+      <h2>Recent readings</h2>
+      <p class="muted small">Flag a test if something went wrong (wrong network, walked away). Flagged tests are kept in the
+        export but removed by the pipeline.</p>
+      <ol id="recent" class="recent"></ol>
+      <button id="clear" class="btn danger" type="button">Delete all readings on this phone</button>
+    </section>
+  </main>
+
+  <footer class="muted small">
+    Speed tests use Cloudflare's open-source engine against Cloudflare's servers. Results stay on this phone until you export them.
+  </footer>
+
+  <script type="module" src="collector.js"></script>
+</body>
+</html>

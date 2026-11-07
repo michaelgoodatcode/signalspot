@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Where on campus can you take a Zoom call or upload a big file right now? Built from speed tests our team measured on foot.">
+  <title>SignalSpot · Campus Zoom &amp; upload finder</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel" aria-label="Search and results">
+      <header class="brand">
+        <h1>SignalSpot</h1>
+        <p>Where on campus can I take a Zoom call or upload a big file <b>right now</b>?</p>
+      </header>
+
+      <div id="banners"></div>
+
+      <section class="controls" aria-label="What do you need?">
+        <div class="seg" role="tablist" aria-label="Task">
+          <button type="button" role="tab" data-task="zoom" aria-selected="true">Zoom call</button>
+          <button type="button" role="tab" data-task="upload" aria-selected="false">Big upload</button>
+        </div>
+        <div id="size-row" class="size-row" hidden>
+          <label for="size">File size</label>
+          <input id="size" type="number" min="0.01" max="500" step="0.1" value="2" inputmode="decimal"> <span>GB</span>
+          <span class="chips">
+            <button type="button" data-size="0.5">0.5</button><button type="button" data-size="2">2</button><button type="button" data-size="10">10</button>
+          </span>
+        </div>
+        <div class="grid">
+          <label>Network
+            <select id="net"></select>
+          </label>
+          <label>When
+            <select id="when"></select>
+          </label>
+          <label class="wide">I'm near
+            <select id="origin"></select>
+          </label>
+        </div>
+      </section>
+
+      <section class="summary" aria-live="polite">
+        <p id="summary-text"></p>
+        <div id="tier-bar" class="tier-bar" role="img"></div>
+        <ul class="legend" id="legend"></ul>
+      </section>
+
+      <section class="results" aria-label="Best spots">
+        <h2 id="results-title">Best spots</h2>
+        <ol id="results"></ol>
+      </section>
+
+      <details class="table-view">
+        <summary>All spots as a table</summary>
+        <div id="table-wrap"></div>
+      </details>
+
+      <footer id="about" class="about"></footer>
+    </aside>
+    <main id="map" aria-label="Map of tested spots"></main>
+  </div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
