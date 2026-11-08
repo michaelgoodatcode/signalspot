@@ -10,7 +10,8 @@ spots to avoid.
 - **App:** https://michaelgoodatcode.github.io/signalspot/
 - **Collector (phone page used to gather the data):** https://michaelgoodatcode.github.io/signalspot/collector/
 - **Dataset:** [data/raw/](data/raw/) (as exported from the phone) and [data/processed/](data/processed/) (cleaned)
-- **Methodology, findings and limitations:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md)
+- **Methodology, findings and limitations:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md) ·
+  **Collection stats:** [data/processed/collection_summary.md](data/processed/collection_summary.md) (auto-generated)
 
 **The dataset:** 25 AT&T speed tests at 24 spots (MSC and Evans, indoors and out), Saturday Nov 7, 2026,
 5:36–6:28 PM. Each test records download, upload, latency, jitter, latency under load, 5G/LTE, crowd level and GPS.

@@ -118,8 +118,8 @@ identical output.
 - **Two buildings, partly covered.** Zachry and Evans floors above 3 were planned but not measured.
 - **One time of day.** All tests were on a Saturday evening, so "right now" mostly falls back to the same readings
   (labeled "all-day data" in the app). Weekday class-change crowds may be slower; the app warns weekday visitors.
-- **Test server is not Zoom.** We measure the path to Cloudflare's nearest edge server. A video call also depends on
-  the route to Zoom and to the other participants.
+- **Test server is not Zoom.** We measure the path to Cloudflare's nearest edge server. A video call also depends
+  on the route to Zoom and to the other participants.
 - **Upload estimates** assume the measured speed holds for the whole upload.
 - **Indoor positions are schematic** (see Processing step 6).
 - **Crowd level** is a subjective three-level judgement (24 of 25 tests were "low").
