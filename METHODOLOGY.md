@@ -22,9 +22,9 @@ publishes that. **Which spots can handle a Zoom call or a big upload, on which n
 
 - **Spots** (`docs/data/spots.csv`): for each building and floor, 4 indoor zones chosen to cover different
   radio conditions: a study area, a lobby or main hall, a far hallway or corner, and a stairwell. Plus 5
-  outdoor points per building (four sides and the nearest plaza). `[edit if you changed the list]`
-- **Networks:** campus Wi-Fi (`TAMU_WiFi`, plus `eduroam` where tested) and each team member's own carrier
-  (`[AT&T / Verizon / T-Mobile]`). At every spot the collector runs Wi-Fi, then cellular with Wi-Fi turned off.
+  outdoor points per building (four sides and the nearest plaza). 
+- **Networks:** campus Wi-Fi (`TAMU_Visitor`) and a team member's own carrier
+  AT&T. At every spot the collector runs Wi-Fi, then cellular with Wi-Fi turned off.
 - **Time:** readings are grouped into five campus-time windows (morning, midday, afternoon, evening, night).
   The target was ≥2 readings per spot per network type across ≥2 windows. `02_coverage` tracked progress live.
 - **Repeatability:** at about 1 in 10 spots the collector ran two tests back to back (`retest_group`). The
@@ -99,8 +99,8 @@ pipeline with reason `flagged_by_collector`.
 
 ## Limitations
 
-- **Snapshot, not a survey.** `[N]` readings over one weekend. Results with n=1 are indicative only.
-- **Weekend traffic.** Collected on `[Sat/Sun]`; weekday class changes load the network more. The app warns
+- **Snapshot, not a survey.** `25` readings over one weekend. Results with n=1 are indicative only.
+- **Weekend traffic.** Collected on `Saturday`; weekday class changes load the network more. The app warns
   weekday visitors.
 - **Test server ≠ Zoom's servers.** We measure the path to Cloudflare's nearest edge. Video calls also depend
   on the route to Zoom and the other participants.
