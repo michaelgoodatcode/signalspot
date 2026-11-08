@@ -248,12 +248,22 @@ def test_coordinates_gps_median_manual_and_fallback():
                     gps_lng="-96.3400", gps_acc_m="8") for i in range(3)]
     rows.append(raw_row(reading_id="inaccurate", spot_id="ZACH-OUT-N", gps_lat="31", gps_lng="-97", gps_acc_m="500"))
     rows.append(raw_row(reading_id="manualspot", spot_id="ZACH-1-LOBBY", gps_lat="30.6230", gps_lng="-96.3410", gps_acc_m="5"))
+    # Indoor GPS fixes at two different MSC spots (like the real data): they move the building, not the spots.
+    rows.append(raw_row(reading_id="in1", spot_id="MSC-1-STUDY", gps_lat="30.6118", gps_lng="-96.3414", gps_acc_m="26"))
+    rows.append(raw_row(reading_id="in2", spot_id="MSC-2-LOBBY", gps_lat="30.6127", gps_lng="-96.3413", gps_acc_m="19"))
+    rows.append(raw_row(reading_id="in3", spot_id="MSC-2-HALL", gps_lat="30.6127", gps_lng="-96.3414", gps_acc_m="80"))  # too rough
     c, _ = clean(raw_df(rows), spots, CFG)
     r = resolve_spot_coords(spots, c, CFG).set_index("spot_id")
     assert r.loc["ZACH-OUT-N", "coord_source"] == "gps_median"
     assert r.loc["ZACH-OUT-N", "lat"] == pytest.approx(30.6221)
     assert r.loc["ZACH-1-LOBBY", "lat"] == 30.6215                  # manual wins over GPS
     assert r.loc["ZACH-OUT-S", "coord_source"] == "building_fallback"
+    # Every MSC indoor spot sits at the GPS-derived building position (median of the 2 accurate fixes).
+    msc_in = r[(r["building_id"] == "MSC") & (r["indoor"] == 1)]
+    assert set(msc_in["coord_source"]) == {"building_gps"}
+    assert msc_in["lat"].nunique() == 1 and msc_in["lat"].iloc[0] == pytest.approx(30.61225)
+    # Other indoor spots without GPS use the typed (approx) building coordinates.
+    assert r.loc["EVAN-2-STUDY", "coord_source"] == "building" and r.loc["EVAN-2-STUDY", "lat"] == pytest.approx(30.6169)
     assert not r["lat"].isna().any()
 
 

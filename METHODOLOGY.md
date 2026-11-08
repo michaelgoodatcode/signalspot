@@ -82,7 +82,10 @@ pipeline with reason `flagged_by_collector`.
 
    Bandwidth cutoffs follow Zoom's published requirements; latency, jitter and failure-rate cutoffs are
    our own choices. All thresholds live in `docs/shared/config.json`.
-6. **Export:** Delta tables (`readings`, `spot_stats`, `spots`, `qa_log`), CSV copies in `data/processed/`, and
+6. **Place on the map:** phone GPS indoors is only accurate to about ±20–40 m, which can't separate floors, so
+   indoor spots are drawn on a ring around their building. The building's position is the median of the
+   accurate GPS fixes taken inside it. Outdoor spots use the median of their own GPS fixes (accuracy ≤30 m).
+7. **Export:** Delta tables (`readings`, `spot_stats`, `spots`, `qa_log`), CSV copies in `data/processed/`, and
    `docs/data/spots_scored.json` for the app.
 
 ## How the app uses the data

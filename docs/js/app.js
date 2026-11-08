@@ -318,9 +318,9 @@ function render() {
 function renderSummary(win) {
   const sum = networkSummary(state.data.spots, state.netKey, win);
   const n = network();
-  const winText = win === 'all' ? 'any time' : (windowsById()[win] || {}).label.toLowerCase();
+  const winText = win === 'all' ? 'any time' : (windowsById()[win] || {}).label;
   $('summary-text').innerHTML = sum.tested
-    ? `On <b>${esc(netLabel(n))}</b> (${esc(winText)}): <b>${sum.ready} of ${sum.tested}</b> tested spots can handle a video call; <b>${sum.dead}</b> ${sum.dead === 1 ? 'is a dead zone' : 'are dead zones'}.`
+    ? `<b>${esc(netLabel(n))}</b> · ${esc(winText)}: <b>${sum.ready} of ${sum.tested}</b> tested spots can handle a video call; <b>${sum.dead}</b> ${sum.dead === 1 ? 'is a dead zone' : 'are dead zones'}.`
     : `No readings on ${esc(netLabel(n))} yet.`;
   const bar = $('tier-bar');
   bar.innerHTML = ['good', 'ok', 'poor', 'dead'].filter((t) => sum[t] > 0)

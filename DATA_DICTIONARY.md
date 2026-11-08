@@ -48,6 +48,13 @@ One row per speed test, exactly as recorded on the phone. Empty cell = not recor
 | `lat`, `lng` | Coordinates (may be empty for outdoor spots; filled from GPS) |
 | `coord_source` | `manual` (typed in, wins), `approx` (building centroid), `gps` (to be filled from readings) |
 
+## `data/processed/spots_resolved.csv` (Delta table `spots`)
+
+spots.csv plus the coordinates the app uses. `coord_source`: `manual` (typed in), `building_gps` (indoor spot
+placed at its building, whose position is the median of accurate indoor GPS fixes), `building` (same, from
+spots.csv coordinates), `gps_median` (outdoor spot, median of GPS fixes with ≤30 m accuracy),
+`building_fallback` (outdoor spot with no GPS yet, placed at its building).
+
 ## `data/processed/readings_clean.csv` (Delta table `readings`)
 
 All raw fields that survive cleaning, plus:

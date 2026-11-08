@@ -30,37 +30,64 @@ def _py(v, nd: int = 2):
 
 
 def resolve_spot_coords(spots: pd.DataFrame, clean_df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Pick coordinates for each spot.
+    """Pick map coordinates for each spot.
 
-    Priority: coordinates typed into spots.csv with coord_source='manual' > median of
-    accurate GPS fixes recorded at the spot > approximate coordinates in spots.csv >
-    the building's centroid.
+    Buildings: median of accurate GPS fixes taken at the building's indoor spots, else the
+    mean of the indoor coordinates typed into spots.csv.
+    Indoor spots: GPS indoors (±20-40 m) cannot tell floors or corners apart, so every indoor
+    spot is placed at its building (the app draws them on a ring), unless coord_source='manual'.
+    Outdoor spots: 'manual' coordinates > median of accurate GPS fixes > coordinates in
+    spots.csv > the building position.
     """
     out = spots.copy()
     gps_cfg = config["gps"]
-    for i, sp in out.iterrows():
-        if sp["coord_source"] == "manual" and not (pd.isna(sp["lat"]) or pd.isna(sp["lng"])):
+    has_gps = clean_df["gps_lat"].notna() & clean_df["gps_lng"].notna() if len(clean_df) else pd.Series(dtype=bool)
+
+    # 1) building positions
+    centroids = {}
+    for bid, g in out.groupby("building_id"):
+        indoor_ids = set(g.loc[g["indoor"] == 1, "spot_id"])
+        fixes = clean_df[has_gps & clean_df["spot_id"].isin(indoor_ids)
+                         & (clean_df["gps_acc_m"] <= gps_cfg["indoor_max_accuracy_m"])] if len(clean_df) else clean_df
+        if len(fixes):
+            centroids[bid] = (round(float(fixes["gps_lat"].median()), 5), round(float(fixes["gps_lng"].median()), 5), "building_gps")
             continue
-        max_acc = gps_cfg["indoor_max_accuracy_m"] if sp["indoor"] == 1 else gps_cfg["outdoor_max_accuracy_m"]
-        fixes = clean_df[(clean_df["spot_id"] == sp["spot_id"]) & clean_df["gps_lat"].notna()
-                         & clean_df["gps_lng"].notna() & (clean_df["gps_acc_m"] <= max_acc)]
+        typed = g[g["lat"].notna() & g["lng"].notna()]
+        typed_in = typed[typed["indoor"] == 1]
+        use = typed_in if len(typed_in) else typed
+        if len(use):
+            centroids[bid] = (round(float(use["lat"].mean()), 5), round(float(use["lng"].mean()), 5), "building")
+
+    # 2) spots
+    for i, sp in out.iterrows():
+        manual = sp["coord_source"] == "manual" and not (pd.isna(sp["lat"]) or pd.isna(sp["lng"]))
+        if manual:
+            continue
+        cent = centroids.get(sp["building_id"])
+        if sp["indoor"] == 1:
+            if cent:
+                out.at[i, "lat"], out.at[i, "lng"], out.at[i, "coord_source"] = cent
+            else:
+                out.at[i, "coord_source"] = "unplaced"
+            continue
+        fixes = clean_df[has_gps & (clean_df["spot_id"] == sp["spot_id"])
+                         & (clean_df["gps_acc_m"] <= gps_cfg["outdoor_max_accuracy_m"])] if len(clean_df) else clean_df
         if len(fixes):
             out.at[i, "lat"] = round(float(fixes["gps_lat"].median()), gps_cfg["round_decimals"])
             out.at[i, "lng"] = round(float(fixes["gps_lng"].median()), gps_cfg["round_decimals"])
             out.at[i, "coord_source"] = "gps_median"
-        elif pd.isna(sp["lat"]) or pd.isna(sp["lng"]):
-            out.at[i, "coord_source"] = "unplaced"
-    # Fill anything still unplaced with its building's centroid.
-    centroids = building_centroids(out)
-    for i, sp in out.iterrows():
-        if sp["coord_source"] == "unplaced" and sp["building_id"] in centroids:
-            c = centroids[sp["building_id"]]
-            out.at[i, "lat"], out.at[i, "lng"] = c["lat"], c["lng"]
+        elif not (pd.isna(sp["lat"]) or pd.isna(sp["lng"])):
+            pass  # keep the coordinates typed into spots.csv
+        elif cent:
+            out.at[i, "lat"], out.at[i, "lng"] = cent[0], cent[1]
             out.at[i, "coord_source"] = "building_fallback"
+        else:
+            out.at[i, "coord_source"] = "unplaced"
     return out
 
 
 def building_centroids(spots: pd.DataFrame) -> dict:
+    """Building positions from resolved spots (indoor spots sit at their building's position)."""
     placed = spots[spots["lat"].notna() & spots["lng"].notna() & (spots["coord_source"] != "unplaced")]
     cents = {}
     for bid, g in placed.groupby("building_id"):

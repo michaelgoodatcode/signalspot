@@ -98,7 +98,7 @@ def test_app_flow(site, browser):
 
     # Network switch changes the summary.
     page.select_option("#net", "cell:Verizon")
-    assert page.inner_text("#summary-text") != first_net_summary and "Cell · Verizon" in page.inner_text("#summary-text")
+    assert page.inner_text("#summary-text") != first_net_summary and "Cell · Verizon · Afternoon (2–6 PM)" in page.inner_text("#summary-text")
     page.select_option("#net", "wifi:TAMU_WiFi")
 
     # Upload task with a 10 GB file.
