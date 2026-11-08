@@ -7,7 +7,7 @@ from speed tests we ran on foot during TAMU Datathon. Pick *Zoom call* or *Big u
 ranks the spots that will work, estimates how long an upload takes including the walk there, and shows the weak
 spots to avoid.
 
-- **App:** https://michaelgoodatcode.github.io/signalspot/
+- **App:**(https://signalspot.us)
 - **Collector (phone page used to gather the data):** https://michaelgoodatcode.github.io/signalspot/collector/
 - **Dataset:** [data/raw/](data/raw/) (as exported from the phone) and [data/processed/](data/processed/) (cleaned)
 - **Methodology, findings and limitations:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md) ·
