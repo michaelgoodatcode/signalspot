@@ -7,8 +7,8 @@ entirely from speed tests our team ran on foot during TAMU Datathon. Pick *Zoom 
 network (TAMU_WiFi, eduroam, or your carrier), and where you are. It ranks the spots that will work, tells
 you how long the upload will take including the walk, and shows the dead zones to avoid.
 
-- **App:** `https://<your-github-user>.github.io/<repo>/`
-- **Collector (team phones):** `https://<your-github-user>.github.io/<repo>/collector/`
+- **App:** https://michaelgoodatcode.github.io/signalspot/
+- **Collector (team phones):** `https://michael.github.io/<repo>/collector/`
 - **Methodology:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md) ·
   **Collection stats:** [data/processed/collection_summary.md](data/processed/collection_summary.md) (auto-generated)
 
