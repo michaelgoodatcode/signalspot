@@ -1,14 +1,17 @@
-# 2-minute demo video: shot list
+# 2-minute demo video: shot list and narration
 
-Replace every number in brackets with the real values from `data/processed/collection_summary.md` and the app. Never show synthetic data in the video.
+The challenge asks the video to show (a) how and where we collected the data, (b) what the dataset contains,
+and (c) the working app using it. Every number below is from our real data
+(`data/processed/collection_summary.md`, `METHODOLOGY.md`).
 
-The rubric wants: (a) how and where we collected, (b) what the dataset contains, (c) the app using it.
-
-| Time | Shot | Say |
+| Time | Show on screen | Say |
 |---|---|---|
-| 0:00–0:12 | Someone's Zoom freezing in a stairwell (staged) | "Ever had a call drop between classes? Nobody maps where campus internet actually works, so we measured it." |
-| 0:12–0:40 | Walking into Zachry, phone on the collector, tapping *Run*; live numbers climbing; switching Wi-Fi off for the cell test; a stairwell test failing → **Dead zone** | "We picked 55 spots in Zachry, Evans and the MSC. At every spot we ran a Wi-Fi test and a cellular test with Cloudflare's open-source speed test engine. A test that can't move data is a dead-zone measurement, so we keep it." |
-| 0:40–0:55 | Databricks: CSVs in the `raw` volume, `01_pipeline` output (kept / removed by reason), `02_coverage` to-do list | "Every export goes into Databricks. The pipeline de-duplicates, logs every removed row with a reason, and scores each spot per network and time of day. The coverage tracker told us where to go next." |
-| 0:55–1:05 | `collection_summary.md`: readings by building/network/window, retest variability | "[N] tests, [M] spots, [K] collectors, with repeat tests to show how noisy a single test is." |
-| 1:05–1:45 | App: *Right now* + Zoom call → ranked list → tap → popup comparing Wi-Fi vs carriers. Switch to *Big upload*, 10 GB, "I'm near MSC" → total time with walk. Dead-zone count in the summary bar | "Ask where to take a Zoom call right now. Each answer comes from our medians for this time window. For a 10 GB upload it adds the walk: [X] minutes to [spot] beats a [Y]-minute upload here." |
-| 1:45–2:00 | Methodology page / limitations section | "It's one weekend of data, measured to Cloudflare not Zoom, and weekday crowds may be worse. Everything's in the repo." |
+| 0:00–0:12 | Phone showing a Zoom call stuck "reconnecting", inside the MSC (staged) | "Ever had a Zoom call drop between classes? Nobody publishes where on campus your phone's data actually holds up, so we went and measured it." |
+| 0:12–0:40 | Walking in the MSC with the collector open: the "where to stand" card with the green GPS check, tapping **Run**, the numbers climbing, the result card | "We built a phone page that runs an open-source Cloudflare speed test and records the spot, 5G or LTE, how busy it is, and GPS. It even catches you if you pick the wrong building. We tested 24 spots in the MSC and Evans, inside on every floor we reached and outside." |
+| 0:40–0:58 | Databricks: the CSVs in the `raw` volume, `01_pipeline` output ("Kept 25 of 40 rows", removed by reason), the `readings` table | "Each export goes into Databricks. The pipeline removes the 12 duplicate copies, drops 3 tests our GPS check showed were labeled with the wrong building, and scores every spot against Zoom's bandwidth requirements. We re-checked every number with separate code." |
+| 0:58–1:08 | `collection_summary.md` and the findings table in `METHODOLOGY.md` | "25 tests. Evans: 11 of 12 spots handle a video call. MSC: only 5 of 12, and upload inside the MSC had a median of half a megabit." |
+| 1:08–1:45 | The app: **Zoom call** → ranked list → tap a spot → popup. Switch to **Big upload**, 2 GB, *I'm near: Memorial Student Center* | "Ask where to take a Zoom call and it ranks the spots from our measurements. For a 2 GB upload from inside the MSC you'd wait about 9 hours; it tells you to walk to the plaza and finish in about 45 minutes." |
+| 1:45–2:00 | Limitations section of METHODOLOGY.md | "It's one evening, one carrier (AT&T) and one test per spot, so treat it as a snapshot. The collector already supports Wi-Fi and more carriers, and everything is in the repo." |
+
+**Recording tips:** use QuickTime (File → New Screen Recording) for the laptop parts and the iPhone's screen
+recorder for the phone parts. Film the phone in the actual building if you can. Upload to YouTube as *Unlisted*.

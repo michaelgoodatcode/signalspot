@@ -85,6 +85,7 @@ def test_app_flow(site, browser):
     assert "SYNTHETIC DEMO DATA" in page.inner_text("#banners")
     assert page.locator(".leaflet-marker-icon.spot-icon").count() == 55
     assert page.get_attribute("#map", "data-collapsed") == "false"
+    assert not page.is_visible("#untested-wrap")          # every synthetic spot was tested
     assert "Right now · Afternoon" in page.inner_text("#when")
     page.wait_for_timeout(300)
     page.screenshot(path=str(SHOTS / "app_desktop.png"))
@@ -180,5 +181,54 @@ def test_app_without_data_shows_instructions(site, browser):
     page.wait_for_selector("#banners .banner")
     assert "No data published yet" in page.inner_text("#banners")
     assert not page.is_visible(".results")
+    assert errors == [], errors
+    ctx.close()
+
+
+@pytest.fixture(scope="module")
+def real_site(tmp_path_factory):
+    """The app built from the team's real collector exports in data/raw/ (skipped if none yet)."""
+    raw_files = sorted((REPO / "data" / "raw").glob("*.csv"))
+    if not raw_files:
+        pytest.skip("no real data in data/raw yet")
+    tmp = tmp_path_factory.mktemp("realsite")
+    docs = tmp / "docs"
+    shutil.copytree(REPO / "docs", docs)
+    subprocess.run([sys.executable, str(REPO / "pipeline" / "build_local.py"), "--raw-dir", str(REPO / "data" / "raw"),
+                    "--app-json", str(docs / "data" / "spots_scored.json"), "--processed-dir", str(tmp / "processed")],
+                   check=True, capture_output=True)
+    import json
+    data = json.loads((docs / "data" / "spots_scored.json").read_text())
+    httpd, url = serve(docs)
+    yield {"url": url, "data": data}
+    httpd.shutdown()
+
+
+def test_real_data_hides_untested_spots(real_site, browser):
+    data = real_site["data"]
+    assert data["meta"]["synthetic"] is False
+    n_tested = sum(1 for s in data["spots"] if s["stats"])
+    n_total = len(data["spots"])
+    tested_buildings = {s["building_id"] for s in data["spots"] if s["stats"]}
+    ctx, page, errors = open_app(browser, real_site["url"])
+    page.wait_for_function("window.__signalspotApp !== undefined")
+    assert "SYNTHETIC" not in page.inner_text("#banners")
+    if page.get_attribute("#map", "data-collapsed") == "false":
+        assert page.locator(".spot-icon").count() == n_tested
+        assert set(page.locator(".bldg-label span").all_inner_texts()) == tested_buildings
+    else:
+        assert page.locator(".bldg-badge").count() == len(tested_buildings)
+    page.click(".table-view summary")
+    assert page.locator("#table-wrap tbody tr").count() == n_tested
+    if n_tested < n_total:
+        assert page.is_visible("#untested-wrap") and str(n_total - n_tested) in page.inner_text("#untested-wrap")
+        page.check("#show-untested")
+        assert page.locator("#table-wrap tbody tr").count() == n_total
+        if page.get_attribute("#map", "data-collapsed") == "false":
+            assert page.locator(".spot-icon").count() == n_total
+        page.uncheck("#show-untested")
+        assert page.locator("#table-wrap tbody tr").count() == n_tested
+    assert page.locator("#results li.result").count() >= 1
+    page.screenshot(path=str(SHOTS / "app_real_data.png"))
     assert errors == [], errors
     ctx.close()

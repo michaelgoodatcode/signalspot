@@ -1,16 +1,21 @@
 # SignalSpot
 
-**Where on campus can I take a Zoom call or upload a big file — right now?**
+**Where on campus can I take a Zoom call or upload a big file on my phone's data?**
 
-SignalSpot is a map of Wi-Fi and cellular quality inside and around Zachry, Evans Library and the MSC, built
-entirely from speed tests our team ran on foot during TAMU Datathon. Pick *Zoom call* or *Big upload*, your
-network (TAMU_WiFi, eduroam, or your carrier), and where you are. It ranks the spots that will work, tells
-you how long the upload will take including the walk, and shows the dead zones to avoid.
+SignalSpot maps cellular quality inside and around the Memorial Student Center and Evans Library, built entirely
+from speed tests we ran on foot during TAMU Datathon. Pick *Zoom call* or *Big upload* and where you are. The app
+ranks the spots that will work, estimates how long an upload takes including the walk there, and shows the weak
+spots to avoid.
 
-- **App:** `https://<your-github-user>.github.io/<repo>/`
-- **Collector (team phones):** `https://<your-github-user>.github.io/<repo>/collector/`
-- **Methodology:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md) ·
-  **Collection stats:** [data/processed/collection_summary.md](data/processed/collection_summary.md) (auto-generated)
+- **App:** https://michaelgoodatcode.github.io/signalspot/
+- **Collector (phone page used to gather the data):** https://michaelgoodatcode.github.io/signalspot/collector/
+- **Dataset:** [data/raw/](data/raw/) (as exported from the phone) and [data/processed/](data/processed/) (cleaned)
+- **Methodology, findings and limitations:** [METHODOLOGY.md](METHODOLOGY.md) · **Fields:** [DATA_DICTIONARY.md](DATA_DICTIONARY.md)
+
+**The dataset:** 25 AT&T speed tests at 24 spots (MSC and Evans, indoors and out), Saturday Nov 7, 2026,
+5:36–6:28 PM. Each test records download, upload, latency, jitter, latency under load, 5G/LTE, crowd level and GPS.
+**Headline:** 11 of 12 Evans spots can handle a video call, but only 5 of 12 MSC spots. Median upload inside the
+MSC was 0.48 Mbps; the test on the MSC plaza outside measured 6.2 Mbps. Everything is AT&T cellular only; see the limitations.
 
 ```
  phones (collector page)          Databricks (Free Edition)                      GitHub Pages

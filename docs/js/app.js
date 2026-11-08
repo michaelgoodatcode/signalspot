@@ -12,7 +12,7 @@ const MAX_RESULTS = 8;
 
 const state = {
   data: null, task: 'zoom', sizeGB: 2, netKey: null, when: 'now', originKey: '', origin: null,
-  selected: null, now: () => new Date(),
+  selected: null, now: () => new Date(), showUntested: false,
 };
 let map; const markers = {}; let youMarker = null; let positions = {};
 const badges = {}; const labels = {}; let collapsed = false;
@@ -25,6 +25,11 @@ function effectiveWindow() {
   return state.when;
 }
 const network = () => state.data.networks.find((n) => n.key === state.netKey);
+// Spots in spots.csv that were never measured are hidden unless the user asks for them.
+const tested = (s) => Boolean(s.stats && Object.keys(s.stats).length);
+const visible = (s) => state.showUntested || tested(s);
+const visibleBuildings = () => state.data.buildings.filter((b) => b.lat != null
+  && state.data.spots.some((s) => s.building_id === b.building_id && visible(s)));
 const netLabel = (n) => (n.type === 'wifi' ? `Wi-Fi · ${n.name}` : `Cell · ${n.name}`);
 
 // ---------- boot ----------
@@ -86,6 +91,10 @@ function setupControls() {
   $('net').addEventListener('change', (e) => { state.netKey = e.target.value; render(); });
   $('when').addEventListener('change', (e) => { state.when = e.target.value; render(); });
   $('origin').addEventListener('change', (e) => setOrigin(e.target.value));
+  const untested = state.data.spots.filter((x) => !tested(x)).length;
+  $('untested-wrap').hidden = untested === 0;
+  $('untested-count').textContent = String(untested);
+  $('show-untested').addEventListener('change', (e) => { state.showUntested = e.target.checked; placeRings(); render(); });
   $('results').addEventListener('click', (e) => { const li = e.target.closest('li[data-spot]'); if (li) select(li.dataset.spot, true); });
   $('results').addEventListener('keydown', (e) => {
     const li = e.target.closest('li[data-spot]');
@@ -153,7 +162,7 @@ function buildMap() {
   for (const s of state.data.spots) {
     const p = positions[s.spot_id];
     if (!p) continue;
-    pts.push([p.lat, p.lng]);
+    if (visible(s)) pts.push([p.lat, p.lng]);
     const m = L.marker([p.lat, p.lng], { icon: iconFor('none', false), keyboard: true, title: s.label, riseOnHover: true });
     m.on('click', () => select(s.spot_id, false));
     m.bindPopup(() => popupHTML(s), { maxWidth: Math.min(340, map.getSize().x - 70), minWidth: Math.min(250, map.getSize().x - 70), autoPan: true, autoPanPaddingTopLeft: [50, 10], autoPanPaddingBottomRight: [10, 10] });
@@ -177,7 +186,7 @@ function buildMap() {
 function ringGroups() {
   const groups = {};
   for (const s of state.data.spots) {
-    if (!positions[s.spot_id] || !positions[s.spot_id].schematic) continue;
+    if (!positions[s.spot_id] || !positions[s.spot_id].schematic || !visible(s)) continue;
     const key = `${s.building_id}|${s.indoor === 1 ? 'in' : 'out'}`;
     (groups[key] = groups[key] || []).push(s);
   }
@@ -213,7 +222,7 @@ function placeRings() {
   // Zoomed in far enough, they sit at their true position.
   for (const s of state.data.spots) {
     const pos = positions[s.spot_id];
-    if (!pos || pos.schematic || s.indoor === 1 || !markers[s.spot_id]) continue;
+    if (!pos || pos.schematic || s.indoor === 1 || !markers[s.spot_id] || !visible(s)) continue;
     const c = cent[s.building_id];
     const rIn = radii[s.building_id];
     if (!c || c.lat == null || !rIn) { markers[s.spot_id].setLatLng([pos.lat, pos.lng]); continue; }
@@ -233,7 +242,8 @@ function placeRings() {
 // screens), show one summary badge per building instead; tapping it zooms in.
 function updateCollapse(radii) {
   const z = map.getZoom();
-  const bs = state.data.buildings.filter((b) => b.lat != null);
+  const bs = visibleBuildings();
+  const shownB = new Set(bs.map((b) => b.building_id));
   let next = false;
   for (let i = 0; i < bs.length && !next; i++) {
     for (let j = i + 1; j < bs.length; j++) {
@@ -246,14 +256,17 @@ function updateCollapse(radii) {
   for (const s of state.data.spots) {
     const m = markers[s.spot_id];
     if (!m) continue;
-    if (collapsed && map.hasLayer(m)) m.remove();
-    if (!collapsed && !map.hasLayer(m)) m.addTo(map);
+    const show = !collapsed && visible(s);
+    if (!show && map.hasLayer(m)) m.remove();
+    if (show && !map.hasLayer(m)) m.addTo(map);
   }
   for (const [bid, badge] of Object.entries(badges)) {
-    if (collapsed && !map.hasLayer(badge)) badge.addTo(map);
-    if (!collapsed && map.hasLayer(badge)) badge.remove();
+    const showBadge = collapsed && shownB.has(bid);
+    const showLabel = !collapsed && shownB.has(bid);
+    if (showBadge && !map.hasLayer(badge)) badge.addTo(map);
+    if (!showBadge && map.hasLayer(badge)) badge.remove();
     const lab = labels[bid];
-    if (lab) { if (collapsed && map.hasLayer(lab)) lab.remove(); if (!collapsed && !map.hasLayer(lab)) lab.addTo(map); }
+    if (lab) { if (!showLabel && map.hasLayer(lab)) lab.remove(); if (showLabel && !map.hasLayer(lab)) lab.addTo(map); }
   }
   document.getElementById('map').dataset.collapsed = String(collapsed);
 }
@@ -371,7 +384,7 @@ function renderResults(items, win) {
 }
 
 function renderTable(win) {
-  const rows = state.data.spots.map((sp) => ({ sp, p: pickStats(sp, state.netKey, win) }))
+  const rows = state.data.spots.filter(visible).map((sp) => ({ sp, p: pickStats(sp, state.netKey, win) }))
     .sort((a, b) => a.sp.building_id.localeCompare(b.sp.building_id) || String(a.sp.floor).localeCompare(String(b.sp.floor), undefined, { numeric: true }));
   $('table-wrap').innerHTML = `<table><thead><tr><th>Spot</th><th>Bldg</th><th>Zoom</th><th>Up</th><th>Down</th><th>ms</th><th>n</th></tr></thead><tbody>${
     rows.map(({ sp, p }) => {
@@ -385,7 +398,7 @@ function renderMarkers(win) {
   for (const b of state.data.buildings) {
     if (!badges[b.building_id]) continue;
     const counts = {};
-    for (const sp of state.data.spots.filter((x) => x.building_id === b.building_id)) {
+    for (const sp of state.data.spots.filter((x) => x.building_id === b.building_id && visible(x))) {
       const p = pickStats(sp, state.netKey, win);
       const t = p ? p.s.tier : 'none';
       counts[t] = (counts[t] || 0) + 1;
